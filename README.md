@@ -7,6 +7,9 @@ and shows what you can spend per year after taxes.
 Everything runs in the browser. Your data lives in `localStorage` — nothing is
 uploaded anywhere.
 
+**Live app:** https://aerichmo.github.io/F1NANC3/ — deploys automatically from
+`main` via GitHub Pages (`.github/workflows/pages.yml`).
+
 ## Run it
 
 Any static file server works:
