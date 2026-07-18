@@ -48,9 +48,23 @@
         </label>
         <button id="reset-data" class="ghost-btn" type="button">Reset</button>
       </div>
-      <p class="fineprint">Balances update by hand or JSON import today. Bank of America has no public
-        consumer API — live sync means an aggregator (Plaid, MX, SimpleFIN). See the
-        <a href="https://github.com/aerichmo/F1NANC3#connecting-real-account-data" target="_blank" rel="noopener">README</a> for that path.</p>
+      <div class="sync-block">
+        <h3>Bank sync — SimpleFIN</h3>
+        <div id="sync-disconnected" class="sync-row">
+          <input id="sync-token" type="password" autocomplete="off" spellcheck="false"
+                 placeholder="Paste SimpleFIN setup token or access URL" aria-label="SimpleFIN setup token or access URL">
+          <button id="sync-connect" class="primary-btn" type="button">Connect</button>
+        </div>
+        <div id="sync-connected" class="sync-row" hidden>
+          <button id="sync-refresh" class="primary-btn" type="button">Refresh balances</button>
+          <button id="sync-disconnect" class="ghost-btn" type="button">Disconnect</button>
+        </div>
+        <p id="sync-status" class="fineprint" role="status"></p>
+        <p class="fineprint">Read-only, via <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener">SimpleFIN Bridge</a>
+          (Bank of America has no public consumer API). The credential stays in this browser — and is included in Export files,
+          so treat those as private. See the
+          <a href="https://github.com/aerichmo/F1NANC3#connecting-real-account-data" target="_blank" rel="noopener">README</a>.</p>
+      </div>
     </section>
 
     <section class="card" aria-labelledby="assump-h">

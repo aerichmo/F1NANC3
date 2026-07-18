@@ -60,9 +60,21 @@ node --test test/calc.test.mjs
 
 ## Connecting real account data
 
-**Bank of America does not offer a public API for personal accounts.** Their
-developer platform (CashPro) is for corporate/treasury clients only. Consumer
-apps that show BofA / Merrill balances get them through **aggregators**:
+**Built in: SimpleFIN sync.** In *Your accounts → Bank sync*, paste a SimpleFIN
+setup token (from [SimpleFIN Bridge](https://beta-bridge.simplefin.org), ~$15/yr)
+or a ready access URL. The app claims the token, stores the read-only access
+credential in your browser's `localStorage`, and **Refresh balances** pulls
+current balances straight from the bridge (their API sends CORS headers, so no
+server is involved). Synced accounts are matched by SimpleFIN id: your renames,
+bucket types, and contribution amounts survive refreshes — only balances update.
+Link your banks under "Connect to your bank" on the bridge first, or the sync
+returns zero accounts. Note the credential is included in Export files, so treat
+those as private.
+
+**Why an aggregator at all: Bank of America does not offer a public API for
+personal accounts.** Their developer platform (CashPro) is for corporate/treasury
+clients only. Consumer apps that show BofA / Merrill balances get them through
+**aggregators**:
 
 | Option | What it is | Fit |
 |---|---|---|

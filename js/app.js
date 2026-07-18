@@ -3,6 +3,10 @@ import {
   BUCKETS, BUCKET_META, DEFAULT_ASSUMPTIONS, project, parseRate,
 } from './calc.js';
 import { createChart, fmtMoneyCompact, fmtMoneyFull } from './chart.js';
+import {
+  looksLikeAccessUrl, splitAccessUrl, claimSetupToken, fetchSimplefinAccounts,
+  mergeSimplefinAccounts,
+} from './simplefin.js';
 
 const STORE_KEY = 'm3ta-retirement-v1';
 const ACCOUNT_TYPES = [
@@ -22,6 +26,7 @@ const SAMPLE_STATE = {
   sample: true,
   plan: 'amortize',
   dollars: 'real',
+  simplefin: { accessUrl: '', lastSync: null },
   accounts: [
     { id: 1, name: 'Roth 401(k)', type: 'roth', balance: 150000, annualContribution: 20000 },
     { id: 2, name: 'Roth IRA', type: 'roth', balance: 60000, annualContribution: 7000 },
@@ -249,6 +254,75 @@ function renderTable() {
   }
 }
 
+// ---------- SimpleFIN sync ----------
+
+function setSyncStatus(msg, isError = false) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.classList.toggle('sync-error', isError);
+}
+
+function renderSync() {
+  const connected = !!state.simplefin.accessUrl;
+  document.getElementById('sync-disconnected').hidden = connected;
+  document.getElementById('sync-connected').hidden = !connected;
+  if (connected && state.simplefin.lastSync) {
+    setSyncStatus(`Connected · last synced ${new Date(state.simplefin.lastSync).toLocaleString()}`);
+  } else if (connected) {
+    setSyncStatus('Connected — refresh to pull balances.');
+  }
+}
+
+async function refreshBalances() {
+  const btn = document.getElementById('sync-refresh');
+  btn.disabled = true;
+  setSyncStatus('Syncing…');
+  try {
+    const { accounts: sfAccounts, errors } = await fetchSimplefinAccounts(state.simplefin.accessUrl);
+    const { accounts, added, updated } = mergeSimplefinAccounts(state.accounts, sfAccounts, () => nextId++);
+    state.accounts = accounts;
+    state.simplefin.lastSync = Date.now();
+    markEdited(); update(); renderAccounts();
+    let msg = `Synced ${sfAccounts.length} account${sfAccounts.length === 1 ? '' : 's'} — ${updated} updated, ${added} added.`;
+    if (sfAccounts.length === 0) {
+      msg += ' No banks are linked yet — add them under "Connect to your bank" at beta-bridge.simplefin.org, then refresh.';
+    }
+    if (errors.length) msg += ` Bridge says: ${errors.join(' ')}`;
+    setSyncStatus(msg, sfAccounts.length === 0 || errors.length > 0);
+  } catch (err) {
+    setSyncStatus(String(err.message || err), true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function connectSimplefin() {
+  const input = document.getElementById('sync-token');
+  const value = input.value.trim();
+  if (!value) { setSyncStatus('Paste a SimpleFIN setup token or access URL first.', true); return; }
+  const btn = document.getElementById('sync-connect');
+  btn.disabled = true;
+  setSyncStatus('Connecting…');
+  try {
+    let accessUrl;
+    if (looksLikeAccessUrl(value)) {
+      splitAccessUrl(value); // validate
+      accessUrl = value;
+    } else {
+      accessUrl = await claimSetupToken(value);
+    }
+    state.simplefin.accessUrl = accessUrl;
+    state.simplefin.lastSync = null;
+    input.value = '';
+    markEdited(); saveState(); renderSync();
+    await refreshBalances();
+  } catch (err) {
+    setSyncStatus(String(err.message || err), true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ---------- chart ----------
 
 const chart = createChart(document.getElementById('chart'), () => {
@@ -344,6 +418,19 @@ function init() {
     localStorage.removeItem(STORE_KEY);
     location.reload();
   });
+
+  document.getElementById('sync-connect').addEventListener('click', connectSimplefin);
+  document.getElementById('sync-token').addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') connectSimplefin();
+  });
+  document.getElementById('sync-refresh').addEventListener('click', refreshBalances);
+  document.getElementById('sync-disconnect').addEventListener('click', () => {
+    if (!confirm('Remove the SimpleFIN connection from this browser? Synced accounts stay; balances just stop updating.')) return;
+    state.simplefin = { accessUrl: '', lastSync: null };
+    saveState(); renderSync();
+    setSyncStatus('Disconnected.');
+  });
+  renderSync();
 
   const themeBtn = document.getElementById('theme-toggle');
   themeBtn.addEventListener('click', () => {

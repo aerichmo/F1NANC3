@@ -55,6 +55,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--page);
@@ -144,6 +145,13 @@ button, .file-btn { font: inherit; cursor: pointer; }
 .file-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .fineprint { color: var(--text-muted); font-size: 12.5px; margin: 12px 0 0; }
+
+/* --- SimpleFIN sync --- */
+.sync-block { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 12px; }
+.sync-block h3 { font-size: 13.5px; margin: 0 0 8px; color: var(--text-secondary); font-weight: 600; }
+.sync-row { display: flex; gap: 8px; align-items: center; }
+.sync-row input { flex: 1; }
+.sync-error { color: #d03b3b; }
 
 /* --- assumptions --- */
 .assump-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }

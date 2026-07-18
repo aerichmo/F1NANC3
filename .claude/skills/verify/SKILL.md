@@ -42,3 +42,7 @@ add/remove account rows, open the year-by-year `<details>` (61 rows for ages
 
 Gotchas: check `page.on('console'|'pageerror')` for errors — the app must log
 none. The last table row should be ~$0 total under the spend-to-zero plan.
+In the remote sandbox, Playwright's Chromium cannot reach external HTTPS even
+with `proxy: {server: process.env.HTTPS_PROXY}` (CONNECT gets ERR_CONNECTION_RESET);
+verify SimpleFIN sync UI against localhost and check the bridge API's
+CORS/reachability with curl instead.
