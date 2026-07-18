@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retirement Wealth — projection &amp; spending calculator</title>
+<meta name="description" content="Project your wealth to retirement, split by tax treatment (Roth vs pre-tax), and see how much you can spend per year after taxes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%B0%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>Retirement Wealth</h1>
+    <p class="tagline">Where your money stands, what it grows into, and what you can spend each year.</p>
+  </div>
+  <button id="theme-toggle" class="ghost-btn" type="button" aria-label="Toggle light or dark theme">◐ Theme</button>
+</header>
+
+<p id="sample-note" class="sample-note" hidden>
+  Showing <strong>sample data</strong> — edit any field and it becomes yours. Everything stays in this browser; nothing is uploaded.
+</p>
+
+<main class="layout">
+  <aside class="inputs">
+    <section class="card" aria-labelledby="accounts-h">
+      <h2 id="accounts-h">Your accounts</h2>
+      <div id="accounts-list" class="accounts-list"></div>
+      <template id="account-row-tpl">
+        <div class="account-row">
+          <span class="acct-dot" aria-hidden="true"></span>
+          <input class="acct-name" type="text" aria-label="Account name">
+          <select class="acct-type" aria-label="Account type"></select>
+          <label class="field-inline">Balance
+            <input class="acct-balance" type="number" min="0" step="1000" inputmode="decimal">
+          </label>
+          <label class="field-inline">Per year
+            <input class="acct-contrib" type="number" min="0" step="500" inputmode="decimal">
+          </label>
+          <button class="acct-remove ghost-btn" type="button" aria-label="Remove account">✕</button>
+        </div>
+      </template>
+      <div class="row-actions">
+        <button id="add-account" class="primary-btn" type="button">+ Add account</button>
+        <button id="export-json" class="ghost-btn" type="button">Export</button>
+        <label class="ghost-btn file-btn">Import
+          <input id="import-json" type="file" accept="application/json">
+        </label>
+        <button id="reset-data" class="ghost-btn" type="button">Reset</button>
+      </div>
+      <p class="fineprint">Balances update by hand or JSON import today. Bank of America has no public
+        consumer API — live sync means an aggregator (Plaid, MX, SimpleFIN). See the
+        <a href="https://github.com/aerichmo/M3TA/blob/claude/retirement-wealth-calculator-m020rm/README.md#connecting-real-account-data" target="_blank" rel="noopener">README</a> for that path.</p>
+    </section>
+
+    <section class="card" aria-labelledby="assump-h">
+      <h2 id="assump-h">Assumptions</h2>
+      <div class="assump-grid">
+        <label>Current age <input id="in-current-age" type="number" min="16" max="100" step="1"></label>
+        <label>Retire at <input id="in-retire-age" type="number" min="30" max="100" step="1"></label>
+        <label>Plan through age <input id="in-end-age" type="number" min="50" max="110" step="1"></label>
+        <label>Return before retiring <span class="unit-wrap"><input id="in-pre-return" type="number" step="0.1"><span class="unit">%</span></span></label>
+        <label>Return in retirement <span class="unit-wrap"><input id="in-post-return" type="number" step="0.1"><span class="unit">%</span></span></label>
+        <label>Inflation <span class="unit-wrap"><input id="in-inflation" type="number" step="0.1"><span class="unit">%</span></span></label>
+        <label>Contribution growth /yr <span class="unit-wrap"><input id="in-contrib-growth" type="number" step="0.5"><span class="unit">%</span></span></label>
+        <label>Withdrawal rate (percent plan) <span class="unit-wrap"><input id="in-withdrawal" type="number" step="0.1"><span class="unit">%</span></span></label>
+        <label>Filing status
+          <select id="in-filing">
+            <option value="single">Single</option>
+            <option value="married">Married filing jointly</option>
+          </select>
+        </label>
+        <label>State tax (flat) <span class="unit-wrap"><input id="in-state-tax" type="number" step="0.1" min="0"><span class="unit">%</span></span></label>
+        <label class="span-2">Override effective tax on pre-tax withdrawals
+          <span class="unit-wrap"><input id="in-tax-override" type="number" step="0.5" min="0" placeholder="auto: 2026 brackets"><span class="unit">%</span></span>
+        </label>
+      </div>
+    </section>
+  </aside>
+
+  <section class="results">
+    <section class="card hero-card" aria-labelledby="hero-h">
+      <h2 id="hero-h" class="stat-label">You could spend about</h2>
+      <p class="hero"><span id="hero-value">$0</span></p>
+      <p id="hero-sub" class="stat-sub"></p>
+      <p class="stat-sub dim" id="stat-gross"></p>
+    </section>
+
+    <div class="stat-row">
+      <div class="stat-tile">
+        <span class="stat-label">Total at retirement (future $)</span>
+        <span class="stat-value" id="stat-nominal">$0</span>
+      </div>
+      <div class="stat-tile">
+        <span class="stat-label">Same, in today's $</span>
+        <span class="stat-value" id="stat-real">$0</span>
+      </div>
+      <div class="stat-tile">
+        <span class="stat-label" id="stat-aftertax-label">After-tax value</span>
+        <span class="stat-value" id="stat-aftertax">$0</span>
+      </div>
+      <div class="stat-tile">
+        <span class="stat-label">Tax-free at retirement</span>
+        <span class="stat-value" id="stat-taxfree">0%</span>
+      </div>
+    </div>
+
+    <div class="filter-row" role="group" aria-label="Chart display options">
+      <div class="segmented" id="toggle-dollars" role="group" aria-label="Dollar units">
+        <button type="button" data-value="real" aria-pressed="true">Today's $</button>
+        <button type="button" data-value="nominal" aria-pressed="false">Future $</button>
+      </div>
+      <div class="segmented" id="toggle-plan" role="group" aria-label="Spending plan">
+        <button type="button" data-value="amortize" aria-pressed="true">Spend to zero</button>
+        <button type="button" data-value="percent" aria-pressed="false">4% rule</button>
+      </div>
+    </div>
+
+    <section class="card" aria-labelledby="chart-h">
+      <h2 id="chart-h">Projection by tax bucket</h2>
+      <div id="chart-legend" class="legend"></div>
+      <div id="chart"></div>
+    </section>
+
+    <section class="card" aria-labelledby="comp-h">
+      <h2 id="comp-h">Where your money sits</h2>
+      <div class="comp-block">
+        <span class="stat-label">Today</span>
+        <div class="comp-bar" id="comp-now"></div>
+        <div class="comp-labels" id="comp-now-labels"></div>
+      </div>
+      <div class="comp-block">
+        <span class="stat-label">At retirement</span>
+        <div class="comp-bar" id="comp-ret"></div>
+        <div class="comp-labels" id="comp-ret-labels"></div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Year-by-year table</summary>
+      <div class="table-wrap">
+        <table class="tnum">
+          <thead>
+            <tr>
+              <th>Age</th><th>Year</th>
+              <th>Roth</th><th>Pre-tax</th><th>Taxable</th><th>Cash</th><th>HSA</th>
+              <th>Total</th><th>Withdrawal</th><th>Tax</th><th>Spend</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary>Method &amp; simplifications</summary>
+      <ul class="method-list">
+        <li>Accumulation compounds each account yearly at the pre-retirement return; contributions land at year-end and grow by the contribution-growth rate. Contributions stop at retirement.</li>
+        <li>Withdrawals are pro-rata across buckets, so the tax mix of each retirement year matches your mix at retirement. "Spend to zero" is a level real annuity through your plan-through age; "4% rule" withdraws that percent of the balance each year (spending floats, money is unlikely to run out).</li>
+        <li>Taxes use 2026 federal brackets and standard deduction (Rev. Proc. 2025-32) applied in today's dollars — brackets are inflation-indexed, so this stays consistent. Pre-tax withdrawals are ordinary income; taxable-account gains use long-term capital-gains brackets stacked on ordinary income; Roth and HSA withdrawals are untaxed (HSA assumed for qualified medical costs).</li>
+        <li>The taxable account's gain share is fixed at its retirement-date value; dividends along the way, RMDs, Social Security, Medicare/IRMAA, and state bracket detail are not modeled. State tax is a flat rate you set.</li>
+        <li>All buckets grow at the same return. Single deterministic path — no market volatility or sequence-of-returns risk. This is an educational planning sketch, not financial or tax advice.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<footer class="foot">
+  Data stays in your browser (localStorage). Educational estimate only — not financial, tax, or investment advice.
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
