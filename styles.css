@@ -152,6 +152,9 @@ button, .file-btn { font: inherit; cursor: pointer; }
 .sync-row { display: flex; gap: 8px; align-items: center; }
 .sync-row input { flex: 1; }
 .sync-error { color: #d03b3b; }
+.gh-setup { margin-top: 8px; }
+.gh-setup summary { cursor: pointer; color: var(--text-muted); font-size: 12.5px; }
+.gh-setup .sync-row { margin-top: 8px; }
 
 /* --- assumptions --- */
 .assump-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }

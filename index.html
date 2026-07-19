@@ -55,14 +55,26 @@
                  placeholder="Paste SimpleFIN setup token or access URL" aria-label="SimpleFIN setup token or access URL">
           <button id="sync-connect" class="primary-btn" type="button">Connect</button>
         </div>
+        <details id="gh-setup" class="gh-setup">
+          <summary>Or: cloud sync via GitHub (works on every device)</summary>
+          <div class="sync-row">
+            <input id="gh-repo" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="Data repo, e.g. alice/f1nanc3-data" aria-label="GitHub data repository (owner/name)">
+          </div>
+          <div class="sync-row">
+            <input id="gh-pat" type="password" autocomplete="off" spellcheck="false"
+                   placeholder="Fine-grained PAT (Contents: read-only)" aria-label="GitHub fine-grained personal access token">
+            <button id="gh-connect" class="primary-btn" type="button">Connect</button>
+          </div>
+        </details>
         <div id="sync-connected" class="sync-row" hidden>
           <button id="sync-refresh" class="primary-btn" type="button">Refresh balances</button>
           <button id="sync-disconnect" class="ghost-btn" type="button">Disconnect</button>
         </div>
         <p id="sync-status" class="fineprint" role="status"></p>
         <p class="fineprint">Read-only, via <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener">SimpleFIN Bridge</a>
-          (Bank of America has no public consumer API). The credential stays in this browser — and is included in Export files,
-          so treat those as private. See the
+          (Bank of America has no public consumer API) — directly, or through a private GitHub repo kept fresh by a scheduled
+          Action. Credentials stay in this browser and are included in Export files, so treat those as private. See the
           <a href="https://github.com/aerichmo/F1NANC3#connecting-real-account-data" target="_blank" rel="noopener">README</a>.</p>
       </div>
     </section>
