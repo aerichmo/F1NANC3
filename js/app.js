@@ -431,6 +431,12 @@ function init() {
     setSyncStatus('Disconnected.');
   });
   renderSync();
+  // When connected, balances refresh themselves on open (throttled to hourly —
+  // the bridge only re-polls banks about daily); the button stays for on-demand.
+  if (state.simplefin.accessUrl &&
+      (!state.simplefin.lastSync || Date.now() - state.simplefin.lastSync > 3600e3)) {
+    refreshBalances();
+  }
 
   const themeBtn = document.getElementById('theme-toggle');
   themeBtn.addEventListener('click', () => {
