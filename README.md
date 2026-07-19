@@ -60,16 +60,30 @@ node --test test/calc.test.mjs
 
 ## Connecting real account data
 
-**Built in: SimpleFIN sync.** In *Your accounts → Bank sync*, paste a SimpleFIN
+**Built in: SimpleFIN sync,** two ways to wire it:
+
+**Direct (single browser).** In *Your accounts → Bank sync*, paste a SimpleFIN
 setup token (from [SimpleFIN Bridge](https://beta-bridge.simplefin.org), ~$15/yr)
 or a ready access URL. The app claims the token, stores the read-only access
 credential in your browser's `localStorage`, and **Refresh balances** pulls
 current balances straight from the bridge (their API sends CORS headers, so no
-server is involved). Synced accounts are matched by SimpleFIN id: your renames,
-bucket types, and contribution amounts survive refreshes — only balances update.
-Link your banks under "Connect to your bank" on the bridge first, or the sync
-returns zero accounts. Note the credential is included in Export files, so treat
-those as private.
+server is involved). Maximum privacy, but the credential — and your data — live
+in exactly one browser.
+
+**Cloud sync via GitHub (recommended for multiple devices).** Create a
+**private** repo (e.g. `you/f1nanc3-data`) with a scheduled Action that pulls
+SimpleFIN daily and commits `balances.json` — a ready-made workflow and setup
+guide ship in that repo's README. Your SimpleFIN credential lives in GitHub
+Actions **secrets**; each browser only holds a fine-grained PAT scoped to
+read that one repo (paste repo + PAT under *Bank sync → cloud sync via
+GitHub*). Every device sees the same balances, survives browser-storage
+eviction, and syncs are diagnosable in the Actions log.
+
+Either way, synced accounts are matched by SimpleFIN id: your renames, bucket
+types, and contribution amounts survive refreshes — only balances update. Link
+your banks under "Connect to your bank" on the bridge first, or the sync
+returns zero accounts. Credentials ride along in Export files, so treat those
+as private.
 
 **Why an aggregator at all: Bank of America does not offer a public API for
 personal accounts.** Their developer platform (CashPro) is for corporate/treasury

@@ -7,6 +7,7 @@ import {
   looksLikeAccessUrl, splitAccessUrl, claimSetupToken, fetchSimplefinAccounts,
   mergeSimplefinAccounts,
 } from './simplefin.js';
+import { parseRepoPath, fetchGithubBalances } from './ghsync.js';
 
 const STORE_KEY = 'm3ta-retirement-v1';
 const ACCOUNT_TYPES = [
@@ -27,6 +28,7 @@ const SAMPLE_STATE = {
   plan: 'amortize',
   dollars: 'real',
   simplefin: { accessUrl: '', lastSync: null },
+  ghsync: { repo: '', pat: '' },
   accounts: [
     { id: 1, name: 'Roth 401(k)', type: 'roth', balance: 150000, annualContribution: 20000 },
     { id: 2, name: 'Roth IRA', type: 'roth', balance: 60000, annualContribution: 7000 },
@@ -262,14 +264,21 @@ function setSyncStatus(msg, isError = false) {
   el.classList.toggle('sync-error', isError);
 }
 
+function syncSource() {
+  if (state.ghsync.repo && state.ghsync.pat) return 'github';
+  if (state.simplefin.accessUrl) return 'simplefin';
+  return null;
+}
+
 function renderSync() {
-  const connected = !!state.simplefin.accessUrl;
-  document.getElementById('sync-disconnected').hidden = connected;
-  document.getElementById('sync-connected').hidden = !connected;
-  if (connected && state.simplefin.lastSync) {
-    setSyncStatus(`Connected · last synced ${new Date(state.simplefin.lastSync).toLocaleString()}`);
-  } else if (connected) {
-    setSyncStatus('Connected — refresh to pull balances.');
+  const source = syncSource();
+  document.getElementById('sync-disconnected').hidden = !!source;
+  document.getElementById('gh-setup').hidden = !!source;
+  document.getElementById('sync-connected').hidden = !source;
+  if (source && state.simplefin.lastSync) {
+    setSyncStatus(`Connected via ${source === 'github' ? 'GitHub' : 'SimpleFIN'} · last synced ${new Date(state.simplefin.lastSync).toLocaleString()}`);
+  } else if (source) {
+    setSyncStatus(`Connected via ${source === 'github' ? 'GitHub' : 'SimpleFIN'} — refresh to pull balances.`);
   }
 }
 
@@ -278,17 +287,56 @@ async function refreshBalances() {
   btn.disabled = true;
   setSyncStatus('Syncing…');
   try {
-    const { accounts: sfAccounts, errors } = await fetchSimplefinAccounts(state.simplefin.accessUrl);
+    const viaGithub = syncSource() === 'github';
+    const result = viaGithub
+      ? await fetchGithubBalances(state.ghsync.repo, state.ghsync.pat)
+      : await fetchSimplefinAccounts(state.simplefin.accessUrl);
+    const sfAccounts = result.accounts;
+    const errors = result.errors;
     const { accounts, added, updated } = mergeSimplefinAccounts(state.accounts, sfAccounts, () => nextId++);
     state.accounts = accounts;
     state.simplefin.lastSync = Date.now();
     markEdited(); update(); renderAccounts();
     let msg = `Synced ${sfAccounts.length} account${sfAccounts.length === 1 ? '' : 's'} — ${updated} updated, ${added} added.`;
+    if (viaGithub && result.fetchedAt) {
+      msg += ` Bank data as of ${new Date(result.fetchedAt).toLocaleString()}.`;
+    }
     if (sfAccounts.length === 0) {
-      msg += ' No banks are linked yet — add them under "Connect to your bank" at beta-bridge.simplefin.org, then refresh.';
+      msg += viaGithub
+        ? ' The data repo synced zero accounts — check the bridge connection, then re-run the Sync workflow.'
+        : ' No banks are linked yet — add them under "Connect to your bank" at beta-bridge.simplefin.org, then refresh.';
     }
     if (errors.length) msg += ` Bridge says: ${errors.join(' ')}`;
     setSyncStatus(msg, sfAccounts.length === 0 || errors.length > 0);
+  } catch (err) {
+    setSyncStatus(String(err.message || err), true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function connectGithub() {
+  const repoInput = document.getElementById('gh-repo');
+  const patInput = document.getElementById('gh-pat');
+  const repo = repoInput.value.trim();
+  const pat = patInput.value.trim();
+  if (!repo || !pat) { setSyncStatus('Enter the data repo (owner/name) and a fine-grained PAT first.', true); return; }
+  const btn = document.getElementById('gh-connect');
+  btn.disabled = true;
+  setSyncStatus('Connecting to GitHub…');
+  try {
+    parseRepoPath(repo); // throws on bad format
+    try {
+      await fetchGithubBalances(repo, pat);
+    } catch (err) {
+      if (!err.missingFile) throw err; // bad PAT/repo → don't save
+      // Repo reachable but no balances.json yet: save and guide.
+    }
+    state.ghsync = { repo, pat };
+    state.simplefin.lastSync = null;
+    repoInput.value = ''; patInput.value = '';
+    markEdited(); saveState(); renderSync();
+    await refreshBalances();
   } catch (err) {
     setSyncStatus(String(err.message || err), true);
   } finally {
@@ -423,17 +471,22 @@ function init() {
   document.getElementById('sync-token').addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') connectSimplefin();
   });
+  document.getElementById('gh-connect').addEventListener('click', connectGithub);
+  document.getElementById('gh-pat').addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') connectGithub();
+  });
   document.getElementById('sync-refresh').addEventListener('click', refreshBalances);
   document.getElementById('sync-disconnect').addEventListener('click', () => {
-    if (!confirm('Remove the SimpleFIN connection from this browser? Synced accounts stay; balances just stop updating.')) return;
+    if (!confirm('Remove the sync connection from this browser? Synced accounts stay; balances just stop updating.')) return;
     state.simplefin = { accessUrl: '', lastSync: null };
+    state.ghsync = { repo: '', pat: '' };
     saveState(); renderSync();
     setSyncStatus('Disconnected.');
   });
   renderSync();
   // When connected, balances refresh themselves on open (throttled to hourly —
-  // the bridge only re-polls banks about daily); the button stays for on-demand.
-  if (state.simplefin.accessUrl &&
+  // the bank data itself updates about daily); the button stays for on-demand.
+  if (syncSource() &&
       (!state.simplefin.lastSync || Date.now() - state.simplefin.lastSync > 3600e3)) {
     refreshBalances();
   }
